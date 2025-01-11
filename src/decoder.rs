@@ -1,8 +1,11 @@
 #[derive(Debug, PartialEq)]
-struct Module {
+pub struct Module {
     magic: [u8; 4],
     version: [u8; 4],
     type_section: Option<TypeSection>,
+    function_section: Option<FunctionSection>,
+    export_section: Option<ExportSection>,
+    code_section: Option<CodeSection>,
 }
 
 impl Module {
@@ -11,6 +14,9 @@ impl Module {
             magic: [0; 4],
             version: [0; 4],
             type_section: None,
+            function_section: None,
+            export_section: None,
+            code_section: None,
         }
     }
 }
@@ -25,6 +31,74 @@ impl TypeSection {
         Self { function_types: Vec::new() }
     }
 }
+
+#[derive(Debug, PartialEq)]
+struct FunctionSection {
+    type_idxs: Vec<u8>,
+}
+
+impl FunctionSection {
+    fn new() -> Self { Self { type_idxs: Vec::new() } }
+}
+
+#[derive(Debug, PartialEq)]
+struct ExportSection {
+    exports: Vec<Export>,
+}
+
+impl ExportSection {
+    fn new() -> Self { Self { exports: Vec::new() } }
+}
+
+#[derive(Debug, PartialEq)]
+struct Export {
+    name: Vec<u8>,
+    export_desc: ExportDesc,
+}
+
+impl Export {
+    fn new(
+        name: Vec<u8>,
+        export_desc: ExportDesc,
+    ) -> Self {
+        Self { name, export_desc }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+enum ExportDesc {
+    Func(u8),
+    Table(u8),
+    Mem(u8),
+    Global(u8),
+}
+
+#[derive(Debug, PartialEq)]
+struct CodeSection {
+    codes: Vec<Code>,
+}
+
+impl CodeSection {
+    fn new(codes: Vec<Code>) -> Self {
+        Self { codes }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+struct Code {
+    instructions: Vec<Instruction>,
+}
+
+impl Code {
+    fn new(instructions: Vec<Instruction>) -> Self { Self { instructions } }
+}
+
+#[derive(Debug, PartialEq)]
+enum Instruction {
+    LocalGet(u8),
+    I32Add,
+}
+
 
 #[derive(Debug, PartialEq)]
 struct FunctionType {
@@ -57,17 +131,17 @@ enum NumType {
     F64,
 }
 
-struct Decoder {
+pub struct Decoder {
     input: Vec<u8>,
     pos: usize,
 }
 
 impl Decoder {
-    fn new(input: Vec<u8>) -> Decoder {
+    pub fn new(input: Vec<u8>) -> Decoder {
         Self { input, pos: 0 }
     }
 
-    fn decode(&mut self) -> Result<Module, ()> {
+    pub fn decode(&mut self) -> Result<Module, ()> {
         let mut module = Module::new();
         module.magic = self.decode_magic_number();
         module.version = self.decode_version();
@@ -79,6 +153,15 @@ impl Decoder {
             match section_id {
                 1 => {
                     module.type_section = Some(self.decode_type_section());
+                }
+                3 => {
+                    module.function_section = Some(self.decode_function_section());
+                }
+                7 => {
+                    module.export_section = Some(self.decode_export_section());
+                }
+                10 => {
+                    module.code_section = Some(self.decode_code_section());
                 }
                 _ => {
                     let section_size = self.input[self.pos];
@@ -167,6 +250,105 @@ impl Decoder {
         }
 
         Some(function_type)
+    }
+
+    fn decode_function_section(&mut self) -> FunctionSection {
+        let section_size = self.input[self.pos];
+        self.pos += 1;
+
+        let num = self.input[self.pos];
+        self.pos += 1;
+
+        let mut section = FunctionSection::new();
+
+        for _ in 0..num {
+            section.type_idxs.push(self.input[self.pos]);
+            self.pos += 1;
+        }
+
+        section
+    }
+
+    fn decode_export_section(&mut self) -> ExportSection {
+        let section_size = self.input[self.pos];
+        self.pos += 1;
+
+        let num = self.input[self.pos];
+        self.pos += 1;
+
+        let mut section = ExportSection::new();
+
+        for _ in 0..num {
+            let name_size = self.input[self.pos];
+            self.pos += 1;
+
+            let mut name = Vec::new();
+            for _ in 0..name_size {
+                name.push(self.input[self.pos]);
+                self.pos += 1;
+            }
+
+            let desc_type = self.input[self.pos];
+            self.pos += 1;
+
+            let idx = self.input[self.pos];
+            self.pos += 1;
+
+            let export_desc = match desc_type {
+                0x00 => ExportDesc::Func(idx),
+                0x01 => ExportDesc::Table(idx),
+                0x02 => ExportDesc::Mem(idx),
+                0x03 => ExportDesc::Global(idx),
+                _ => panic!(),
+            };
+
+            section.exports.push(Export::new(name, export_desc));
+        }
+
+        section
+    }
+
+    fn decode_code_section(&mut self) -> CodeSection {
+        let section_size = self.input[self.pos];
+        self.pos += 1;
+
+        let num = self.input[self.pos];
+        self.pos += 1;
+
+        let mut codes = Vec::new();
+        for _ in 0..num {
+            let size = self.input[self.pos];
+            self.pos += 1;
+
+            let local = self.input[self.pos];
+            self.pos += 1;
+
+            let mut instructions = Vec::new();
+            while self.pos < self.input.len() {
+                if self.input[self.pos] == 0x0b {
+                    self.pos += 1;
+                    break;
+                }
+
+                let instruction_type = self.input[self.pos];
+                self.pos += 1;
+                let instruction = match instruction_type {
+                    0x20 => {
+                        let value = self.input[self.pos];
+                        self.pos += 1;
+                        Instruction::LocalGet(value)
+                    },
+                    0x6a => {
+                        Instruction::I32Add
+                    }
+                    _ => unimplemented!(),
+                };
+                instructions.push(instruction);
+            }
+            codes.push(Code::new(instructions));
+        }
+
+        CodeSection::new(codes)
     }
 }
 
