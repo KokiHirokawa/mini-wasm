@@ -285,51 +285,43 @@ impl Decoder<'_> {
 
 #[cfg(test)]
 mod tests {
+    use std::fs::File;
+    use std::io::Read;
     use super::*;
 
-    #[test]
-    fn test_empty() {
-        let buffer = [0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00].to_vec();
-        let mut decoder = Decoder::new(buffer);
-
-        let mut module = Module::new();
-        module.magic = [0x00, 0x61, 0x73, 0x6d];
-        module.version = [0x01, 0x00, 0x00, 0x00];
-
-        assert_eq!(decoder.decode(), Ok(module));
+    fn decode(filename: &str) -> Result<Module, DecodingError> {
+        let mut file = File::open(format!("./tests/inputs/{}.wasm", filename)).unwrap();
+        let mut input = Vec::new();
+        file.read_to_end(&mut input).unwrap();
+        let mut decoder = Decoder::new(&input);
+        decoder.decode()
     }
 
     #[test]
-    fn test_add() {
-        let mut buffer = [
-            0x00, 0x61, 0x73, 0x6d,
-            0x01, 0x00, 0x00, 0x00,
-            0x01, 0x07, 0x01, 0x60,
-            0x02, 0x7f, 0x7f, 0x01,
-            0x7f, 0x03, 0x02, 0x01,
-            0x00, 0x07, 0x07, 0x01,
-            0x03, 0x61, 0x64, 0x64,
-            0x00, 0x00, 0x0a, 0x09,
-            0x01, 0x07, 0x00, 0x20,
-            0x00, 0x20, 0x01, 0x6a,
-            0x0b,
-        ].to_vec();
-        let mut decoder = Decoder::new(buffer);
+    fn test_i32_add() {
+        let module = decode("i32.add").unwrap();
 
-        let mut module = Module::new();
-        module.magic = [0x00, 0x61, 0x73, 0x6d];
-        module.version = [0x01, 0x00, 0x00, 0x00];
-        module.type_section = Some(TypeSection {
-            function_types: vec![FunctionType {
-                params: ResultType {
-                    value_types: vec![NumType::I32, NumType::I32],
-                },
-                results: ResultType {
-                    value_types: vec![NumType::I32],
-                },
+        assert_eq!(
+            module.types,
+            vec![FuncType {
+                parameters: vec![ValType::NumType(NumType::I32), ValType::NumType(NumType::I32)],
+                results: vec![ValType::NumType(NumType::I32)],
             }],
-        });
-
-        assert_eq!(decoder.decode(), Ok(module));
+        );
+        assert_eq!(
+            module.funcs,
+            vec![Func {
+                type_: 0,
+                locals: Vec::new(),
+                body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32Add]),
+            }],
+        );
+        assert_eq!(
+            module.exports,
+            vec![Export {
+                name: "add".to_string(),
+                desc: ExportDesc::Func(0),
+            }],
+        );
     }
 }

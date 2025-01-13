@@ -1,12 +1,12 @@
 use crate::structure::modules::indice::FuncIdx;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Export {
     pub name: String,
     pub desc: ExportDesc,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ExportDesc {
     Func(FuncIdx),
 }
