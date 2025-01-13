@@ -8,7 +8,7 @@ mod structure;
 mod execution;
 
 fn main() {
-    let mut file = File::open("./add.wasm").unwrap();
+    let mut file = File::open("./tests/inputs/add.wasm").unwrap();
     let mut input = Vec::new();
     file.read_to_end(&mut input).unwrap();
 
