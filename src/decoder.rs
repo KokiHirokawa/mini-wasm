@@ -1,175 +1,77 @@
-#[derive(Debug, PartialEq)]
-pub struct Module {
-    magic: [u8; 4],
-    version: [u8; 4],
-    type_section: Option<TypeSection>,
-    function_section: Option<FunctionSection>,
-    export_section: Option<ExportSection>,
-    code_section: Option<CodeSection>,
+use crate::structure::instructions::expression::{Expr, Instr};
+use crate::structure::modules::export::{Export, ExportDesc};
+use crate::structure::modules::function::Func;
+use crate::structure::modules::indice::{FuncIdx, LocalIdx, TypeIdx};
+use crate::structure::modules::module::Module;
+use crate::structure::types::function::FuncType;
+use crate::structure::types::value::ValType;
+use crate::structure::types::value::NumType;
+
+#[derive(Debug)]
+pub struct DecodingError {}
+
+impl DecodingError {
+    fn new() -> Self { Self {} }
 }
 
-impl Module {
-    fn new() -> Self {
-        Self {
-            magic: [0; 4],
-            version: [0; 4],
-            type_section: None,
-            function_section: None,
-            export_section: None,
-            code_section: None,
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-struct TypeSection {
-    function_types: Vec<FunctionType>,
-}
-
-impl TypeSection {
-    fn new() -> Self {
-        Self { function_types: Vec::new() }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-struct FunctionSection {
-    type_idxs: Vec<u8>,
-}
-
-impl FunctionSection {
-    fn new() -> Self { Self { type_idxs: Vec::new() } }
-}
-
-#[derive(Debug, PartialEq)]
-struct ExportSection {
-    exports: Vec<Export>,
-}
-
-impl ExportSection {
-    fn new() -> Self { Self { exports: Vec::new() } }
-}
-
-#[derive(Debug, PartialEq)]
-struct Export {
-    name: Vec<u8>,
-    export_desc: ExportDesc,
-}
-
-impl Export {
-    fn new(
-        name: Vec<u8>,
-        export_desc: ExportDesc,
-    ) -> Self {
-        Self { name, export_desc }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-enum ExportDesc {
-    Func(u8),
-    Table(u8),
-    Mem(u8),
-    Global(u8),
-}
-
-#[derive(Debug, PartialEq)]
-struct CodeSection {
-    codes: Vec<Code>,
-}
-
-impl CodeSection {
-    fn new(codes: Vec<Code>) -> Self {
-        Self { codes }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-struct Code {
-    instructions: Vec<Instruction>,
-}
-
-impl Code {
-    fn new(instructions: Vec<Instruction>) -> Self { Self { instructions } }
-}
-
-#[derive(Debug, PartialEq)]
-enum Instruction {
-    LocalGet(u8),
-    I32Add,
-}
-
-
-#[derive(Debug, PartialEq)]
-struct FunctionType {
-    params: ResultType,
-    results: ResultType,
-}
-
-impl FunctionType {
-    fn new() -> Self {
-        Self { params: ResultType::new(), results: ResultType::new() }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-struct ResultType {
-    value_types: Vec<NumType>
-}
-
-impl ResultType {
-    fn new() -> Self {
-        Self { value_types: Vec::new() }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-enum NumType {
-    I32,
-    I64,
-    F32,
-    F64,
-}
-
-pub struct Decoder {
-    input: Vec<u8>,
+pub struct Decoder<'a> {
+    input: &'a [u8],
     pos: usize,
 }
 
-impl Decoder {
-    pub fn new(input: Vec<u8>) -> Decoder {
+impl<'a> Decoder<'a> {
+    pub fn new(input: &'a [u8]) -> Decoder {
         Self { input, pos: 0 }
     }
+}
 
-    pub fn decode(&mut self) -> Result<Module, ()> {
-        let mut module = Module::new();
-        module.magic = self.decode_magic_number();
-        module.version = self.decode_version();
+impl Decoder<'_> {
+    pub fn decode(&mut self) -> Result<Module, DecodingError> {
+        let mut module = Module {
+            types: Vec::new(),
+            funcs: Vec::new(),
+            exports: Vec::new(),
+        };
 
+        let magic_number = self.decode_magic_number()?;
+        if magic_number != vec![0x00, 0x61, 0x73, 0x6d] {
+            return Err(DecodingError::new());
+        }
+
+        let version = self.decode_version()?;
+        if version != vec![0x01, 0x00, 0x00, 0x00] {
+            return Err(DecodingError::new());
+        }
+
+        let mut type_idxs = Vec::new();
         while self.pos < self.input.len() {
             let section_id = self.input[self.pos];
             self.pos += 1;
 
             match section_id {
                 1 => {
-                    module.type_section = Some(self.decode_type_section());
+                    module.types = self.decode_type_section()?;
+                    dbg!(&module.types);
                 }
                 3 => {
-                    module.function_section = Some(self.decode_function_section());
+                    type_idxs = self.decode_function_section()?;
+                    dbg!(&type_idxs);
                 }
                 7 => {
-                    module.export_section = Some(self.decode_export_section());
+                    module.exports = self.decode_export_section()?;
+                    dbg!(&module.exports);
                 }
                 10 => {
-                    module.code_section = Some(self.decode_code_section());
+                    module.funcs = self.decode_code_section(&type_idxs)?;
+                    dbg!(&module.funcs);
                 }
                 _ => {
                     let section_size = self.input[self.pos];
                     self.pos += 1;
 
-                    self.pos += section_size as usize;
-
                     println!("id: {}, size: {}", section_id, section_size);
+
+                    self.pos += section_size as usize;
                 }
             }
         }
@@ -177,114 +79,131 @@ impl Decoder {
         Ok(module)
     }
 
-    fn decode_magic_number(&mut self) -> [u8; 4] {
+    fn decode_magic_number(&mut self) -> Result<Vec<u8>, DecodingError> {
         assert_eq!(self.pos, 0);
 
-        let mut magic: [u8; 4] = [0; 4];
-        for i in 0..4 {
-            magic[i] = self.input[self.pos];
+        let mut magic_number = Vec::new();
+        for _ in 0..4 {
+            if self.input.len() <= self.pos {
+                return Err(DecodingError::new());
+            }
+
+            magic_number.push(self.input[self.pos]);
             self.pos += 1;
         }
-        magic
+        Ok(magic_number)
     }
 
-    fn decode_version(&mut self) -> [u8; 4] {
+    fn decode_version(&mut self) -> Result<Vec<u8>, DecodingError> {
         assert_eq!(self.pos, 4);
 
-        let mut version: [u8; 4] = [0; 4];
-        for i in 0..4 {
-            version[i] = self.input[self.pos];
-            self.pos += 1;
-        }
-        version
-    }
-
-    fn decode_type_section(&mut self) -> TypeSection {
-        let mut type_section = TypeSection::new();
-
-        let section_size = self.input[self.pos];
-        self.pos += 1;
-
-        let num = self.input[self.pos];
-        self.pos += 1;
-
-        for i in 0..num {
-            if let Some(function_type) = self.decode_function_type() {
-                type_section.function_types.push(function_type);
+        let mut version = Vec::new();
+        for _ in 0..4 {
+            if self.input.len() <= self.pos {
+                return Err(DecodingError::new());
             }
-        }
 
-        type_section
-    }
-
-    fn decode_function_type(&mut self) -> Option<FunctionType> {
-        let byte = self.input[self.pos];
-        self.pos += 1;
-
-        if byte != 0x60 {
-            return None;
-        }
-
-        let mut function_type = FunctionType::new();
-
-        let num_of_params = self.input[self.pos];
-        self.pos += 1;
-        for _ in 0..num_of_params {
-            let value_type = match self.input[self.pos] {
-                0x7f => NumType::I32,
-                _ => unimplemented!(),
-            };
-            function_type.params.value_types.push(value_type);
+            version.push(self.input[self.pos]);
             self.pos += 1;
         }
-
-        let num_of_results = self.input[self.pos];
-        self.pos += 1;
-        for _ in 0..num_of_results {
-            let value_type = match self.input[self.pos] {
-                0x7f => NumType::I32,
-                _ => unimplemented!(),
-            };
-            function_type.results.value_types.push(value_type);
-            self.pos += 1;
-        }
-
-        Some(function_type)
+        Ok(version)
     }
 
-    fn decode_function_section(&mut self) -> FunctionSection {
+    fn decode_type_section(&mut self) -> Result<Vec<FuncType>, DecodingError> {
+        let mut types = Vec::new();
+
         let section_size = self.input[self.pos];
         self.pos += 1;
 
-        let num = self.input[self.pos];
+        println!("size of type section: {}", section_size);
+
+        let num_of_func_types = self.input[self.pos];
         self.pos += 1;
 
-        let mut section = FunctionSection::new();
-
-        for _ in 0..num {
-            section.type_idxs.push(self.input[self.pos]);
+        for i in 0..num_of_func_types {
+            if self.input[self.pos] != 0x60 {
+                return Err(DecodingError::new());
+            }
             self.pos += 1;
+
+            let num_of_parameters = self.input[self.pos];
+            self.pos += 1;
+            let mut parameters = Vec::new();
+            for _ in 0..num_of_parameters {
+                let val_type = match self.input[self.pos] {
+                    0x7f => ValType::NumType(NumType::I32),
+                    0x7e => ValType::NumType(NumType::I64),
+                    0x7d => ValType::NumType(NumType::F32),
+                    0x7c => ValType::NumType(NumType::F64),
+                    _ => unimplemented!("unimplemented value type"),
+                };
+                parameters.push(val_type);
+                self.pos += 1;
+            }
+
+            let mut num_of_results = self.input[self.pos];
+            self.pos += 1;
+            let mut results = Vec::new();
+            for _ in 0..num_of_results {
+                let val_type = match self.input[self.pos] {
+                    0x7f => ValType::NumType(NumType::I32),
+                    0x7e => ValType::NumType(NumType::I64),
+                    0x7d => ValType::NumType(NumType::F32),
+                    0x7c => ValType::NumType(NumType::F64),
+                    _ => unimplemented!("unimplemented value type"),
+                };
+                results.push(val_type);
+                self.pos += 1;
+            }
+
+            let func_type = FuncType {
+                parameters,
+                results,
+            };
+            types.push(func_type);
         }
 
-        section
+        Ok(types)
     }
 
-    fn decode_export_section(&mut self) -> ExportSection {
+    fn decode_function_section(&mut self) -> Result<Vec<TypeIdx>, DecodingError> {
+        let mut idxs = Vec::new();
+
         let section_size = self.input[self.pos];
         self.pos += 1;
 
-        let num = self.input[self.pos];
+        println!("size of function section: {}", section_size);
+
+        let num_of_idxs = self.input[self.pos];
         self.pos += 1;
 
-        let mut section = ExportSection::new();
+        for _ in 0..num_of_idxs {
+            // TODO: LEB128 https://webassembly.github.io/spec/core/binary/values.html#integers
+            idxs.push(self.input[self.pos] as TypeIdx);
+            self.pos += 1;
+        }
 
-        for _ in 0..num {
-            let name_size = self.input[self.pos];
+        Ok(idxs)
+    }
+
+    fn decode_export_section(&mut self) -> Result<Vec<Export>, DecodingError> {
+        let mut exports = Vec::new();
+
+        let section_size = self.input[self.pos];
+        self.pos += 1;
+
+        println!("size of export section: {}", section_size);
+
+        let num_of_exports = self.input[self.pos];
+        self.pos += 1;
+
+        for _ in 0..num_of_exports {
+            let name_length = self.input[self.pos];
             self.pos += 1;
 
-            let mut name = Vec::new();
-            for _ in 0..name_size {
-                name.push(self.input[self.pos]);
+            let mut name = String::new();
+            for _ in 0..name_length {
+                name.push(self.input[self.pos] as char);
                 self.pos += 1;
             }
 
@@ -294,61 +213,73 @@ impl Decoder {
             let idx = self.input[self.pos];
             self.pos += 1;
 
-            let export_desc = match desc_type {
-                0x00 => ExportDesc::Func(idx),
-                0x01 => ExportDesc::Table(idx),
-                0x02 => ExportDesc::Mem(idx),
-                0x03 => ExportDesc::Global(idx),
-                _ => panic!(),
+            let desc = match desc_type {
+                0x00 => ExportDesc::Func(idx as FuncIdx),
+                _ => unimplemented!("unimplemented export desc"),
             };
 
-            section.exports.push(Export::new(name, export_desc));
+            let export = Export { name, desc };
+            exports.push(export);
         }
 
-        section
+        Ok(exports)
     }
 
-    fn decode_code_section(&mut self) -> CodeSection {
+    fn decode_code_section(
+        &mut self,
+        type_idxs: &[TypeIdx],
+    ) -> Result<Vec<Func>, DecodingError> {
         let section_size = self.input[self.pos];
         self.pos += 1;
 
-        let num = self.input[self.pos];
+        println!("size of code section: {}", section_size);
+
+        let num_of_funcs = self.input[self.pos];
         self.pos += 1;
 
-        let mut codes = Vec::new();
-        for _ in 0..num {
+        let mut funcs = Vec::new();
+        for i in 0..num_of_funcs {
             let size = self.input[self.pos];
             self.pos += 1;
 
-            let local = self.input[self.pos];
+            let num_of_locals = self.input[self.pos];
             self.pos += 1;
 
-            let mut instructions = Vec::new();
-            while self.pos < self.input.len() {
-                if self.input[self.pos] == 0x0b {
-                    self.pos += 1;
+            let mut locals = Vec::new();
+            for _ in 0..num_of_locals {
+                unimplemented!("decode vec(locals)")
+            }
+
+            let mut body = Expr(Vec::new());
+            loop {
+                let byte = self.input[self.pos];
+                self.pos += 1;
+
+                if byte == 0x0b {
                     break;
                 }
 
-                let instruction_type = self.input[self.pos];
-                self.pos += 1;
-                let instruction = match instruction_type {
+                let instr = match byte {
                     0x20 => {
-                        let value = self.input[self.pos];
+                        let idx = self.input[self.pos];
                         self.pos += 1;
-                        Instruction::LocalGet(value)
+                        Instr::LocalGet(idx as LocalIdx)
                     },
-                    0x6a => {
-                        Instruction::I32Add
-                    }
-                    _ => unimplemented!(),
+                    0x6a => Instr::I32Add,
+                    _ => unimplemented!("unimplemented instr"),
                 };
-                instructions.push(instruction);
+                body.0.push(instr);
             }
-            codes.push(Code::new(instructions));
+
+            let func = Func {
+                type_: type_idxs[i as usize],
+                locals,
+                body
+            };
+            funcs.push(func);
         }
 
-        CodeSection::new(codes)
+        Ok(funcs)
     }
 }
 
