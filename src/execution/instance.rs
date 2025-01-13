@@ -44,6 +44,7 @@ pub fn invoke(
                 let val = &values[0];
                 stack.push(StackValue::Value(val.clone()));
             }
+            _ => unimplemented!(),
         }
         println!("{:?}", stack);
     }

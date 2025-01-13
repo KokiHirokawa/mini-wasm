@@ -265,7 +265,15 @@ impl Decoder<'_> {
                         self.pos += 1;
                         Instr::LocalGet(idx as LocalIdx)
                     },
+                    0x45 => Instr::I32Eqz,
+                    0x46 => Instr::I32Eq,
+                    0x67 => Instr::I32Clz,
                     0x6a => Instr::I32Add,
+                    0x6b => Instr::I32Sub,
+                    0x6c => Instr::I32Mul,
+                    0x6d => Instr::I32DivS,
+                    0x6e => Instr::I32DivU,
+                    0xc0 => Instr::I32Extend8S,
                     _ => unimplemented!("unimplemented instr"),
                 };
                 body.0.push(instr);
@@ -320,6 +328,146 @@ mod tests {
             module.exports,
             vec![Export {
                 name: "add".to_string(),
+                desc: ExportDesc::Func(0),
+            }],
+        );
+    }
+
+    #[test]
+    fn test_i32_div_s() {
+        let module = decode("i32.div_s").unwrap();
+
+        assert_eq!(
+            module.types,
+            vec![FuncType {
+                parameters: vec![ValType::NumType(NumType::I32), ValType::NumType(NumType::I32)],
+                results: vec![ValType::NumType(NumType::I32)],
+            }],
+        );
+        assert_eq!(
+            module.funcs,
+            vec![Func {
+                type_: 0,
+                locals: Vec::new(),
+                body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32DivS]),
+            }],
+        );
+        assert_eq!(
+            module.exports,
+            vec![Export {
+                name: "div_s".to_string(),
+                desc: ExportDesc::Func(0),
+            }],
+        );
+    }
+
+    #[test]
+    fn test_i32_clz() {
+        let module = decode("i32.clz").unwrap();
+
+        assert_eq!(
+            module.types,
+            vec![FuncType {
+                parameters: vec![ValType::NumType(NumType::I32)],
+                results: vec![ValType::NumType(NumType::I32)],
+            }],
+        );
+        assert_eq!(
+            module.funcs,
+            vec![Func {
+                type_: 0,
+                locals: Vec::new(),
+                body: Expr(vec![Instr::LocalGet(0), Instr::I32Clz]),
+            }],
+        );
+        assert_eq!(
+            module.exports,
+            vec![Export {
+                name: "clz".to_string(),
+                desc: ExportDesc::Func(0),
+            }],
+        );
+    }
+
+    #[test]
+    fn test_i32_eq() {
+        let module = decode("i32.eq").unwrap();
+
+        assert_eq!(
+            module.types,
+            vec![FuncType {
+                parameters: vec![ValType::NumType(NumType::I32), ValType::NumType(NumType::I32)],
+                results: vec![ValType::NumType(NumType::I32)],
+            }],
+        );
+        assert_eq!(
+            module.funcs,
+            vec![Func {
+                type_: 0,
+                locals: Vec::new(),
+                body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32Eq]),
+            }],
+        );
+        assert_eq!(
+            module.exports,
+            vec![Export {
+                name: "eq".to_string(),
+                desc: ExportDesc::Func(0),
+            }],
+        );
+    }
+
+    #[test]
+    fn test_i32_eqz() {
+        let module = decode("i32.eqz").unwrap();
+
+        assert_eq!(
+            module.types,
+            vec![FuncType {
+                parameters: vec![ValType::NumType(NumType::I32)],
+                results: vec![ValType::NumType(NumType::I32)],
+            }],
+        );
+        assert_eq!(
+            module.funcs,
+            vec![Func {
+                type_: 0,
+                locals: Vec::new(),
+                body: Expr(vec![Instr::LocalGet(0), Instr::I32Eqz]),
+            }],
+        );
+        assert_eq!(
+            module.exports,
+            vec![Export {
+                name: "eqz".to_string(),
+                desc: ExportDesc::Func(0),
+            }],
+        );
+    }
+
+    #[test]
+    fn test_i32_extend8_s() {
+        let module = decode("i32.extend8_s").unwrap();
+
+        assert_eq!(
+            module.types,
+            vec![FuncType {
+                parameters: vec![ValType::NumType(NumType::I32)],
+                results: vec![ValType::NumType(NumType::I32)],
+            }],
+        );
+        assert_eq!(
+            module.funcs,
+            vec![Func {
+                type_: 0,
+                locals: Vec::new(),
+                body: Expr(vec![Instr::LocalGet(0), Instr::I32Extend8S]),
+            }],
+        );
+        assert_eq!(
+            module.exports,
+            vec![Export {
+                name: "extend8_s".to_string(),
                 desc: ExportDesc::Func(0),
             }],
         );
