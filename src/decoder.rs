@@ -189,9 +189,7 @@ impl Decoder<'_> {
     fn decode_export_section(&mut self) -> Result<Vec<Export>, DecodingError> {
         let mut exports = Vec::new();
 
-        let section_size = self.input[self.pos];
-        self.pos += 1;
-
+        let section_size = self.decode_u32()?;
         println!("size of export section: {}", section_size);
 
         let num_of_exports = self.input[self.pos];
@@ -229,21 +227,15 @@ impl Decoder<'_> {
         &mut self,
         type_idxs: &[TypeIdx],
     ) -> Result<Vec<Func>, DecodingError> {
-        let section_size = self.input[self.pos];
-        self.pos += 1;
-
+        let section_size = self.decode_u32()?;
         println!("size of code section: {}", section_size);
 
-        let num_of_funcs = self.input[self.pos];
-        self.pos += 1;
+        let num_of_funcs = self.decode_u32()?;
 
         let mut funcs = Vec::new();
         for i in 0..num_of_funcs {
-            let size = self.input[self.pos];
-            self.pos += 1;
-
-            let num_of_locals = self.input[self.pos];
-            self.pos += 1;
+            let size = self.decode_u32()?;
+            let num_of_locals = self.decode_u32()?;
 
             let mut locals = Vec::new();
             for _ in 0..num_of_locals {
@@ -267,13 +259,35 @@ impl Decoder<'_> {
                     },
                     0x45 => Instr::I32Eqz,
                     0x46 => Instr::I32Eq,
+                    0x47 => Instr::I32Ne,
+                    0x48 => Instr::I32LtS,
+                    0x49 => Instr::I32LtU,
+                    0x4a => Instr::I32GtS,
+                    0x4b => Instr::I32GtU,
+                    0x4c => Instr::I32LeS,
+                    0x4d => Instr::I32LeU,
+                    0x4e => Instr::I32GeS,
+                    0x4f => Instr::I32GeU,
                     0x67 => Instr::I32Clz,
+                    0x68 => Instr::I32Ctz,
+                    0x69 => Instr::I32Popcnt,
                     0x6a => Instr::I32Add,
                     0x6b => Instr::I32Sub,
                     0x6c => Instr::I32Mul,
                     0x6d => Instr::I32DivS,
                     0x6e => Instr::I32DivU,
+                    0x6f => Instr::I32RemS,
+                    0x70 => Instr::I32RemU,
+                    0x71 => Instr::I32And,
+                    0x72 => Instr::I32Or,
+                    0x73 => Instr::I32Xor,
+                    0x74 => Instr::I32Shl,
+                    0x75 => Instr::I32ShrS,
+                    0x76 => Instr::I32ShrU,
+                    0x77 => Instr::I32Rotl,
+                    0x78 => Instr::I32Rotr,
                     0xc0 => Instr::I32Extend8S,
+                    0xc1 => Instr::I32Extend16S,
                     _ => unimplemented!("unimplemented instr"),
                 };
                 body.0.push(instr);
@@ -288,6 +302,27 @@ impl Decoder<'_> {
         }
 
         Ok(funcs)
+    }
+
+    fn decode_u32(&mut self) -> Result<u32, DecodingError> {
+        let mut result: u32 = 0;
+        let mut shift: u32 = 0;
+
+        loop {
+            let byte = self.input[self.pos];
+            self.pos += 1;
+
+            let value = (byte & 0x7f) as u32;
+            result += value << shift;
+
+            if (byte & 0x80) == 0 {
+                break;
+            }
+
+            shift += 7;
+        }
+
+        Ok(result)
     }
 }
 
@@ -470,6 +505,314 @@ mod tests {
                 name: "extend8_s".to_string(),
                 desc: ExportDesc::Func(0),
             }],
+        );
+    }
+
+    #[test]
+    fn test_i32() {
+        let module = decode("i32").unwrap();
+
+        assert_eq!(
+            module.types,
+            vec![
+                FuncType {
+                    parameters: vec![ValType::NumType(NumType::I32), ValType::NumType(NumType::I32)],
+                    results: vec![ValType::NumType(NumType::I32)],
+                },
+                FuncType {
+                    parameters: vec![ValType::NumType(NumType::I32)],
+                    results: vec![ValType::NumType(NumType::I32)],
+                },
+            ],
+        );
+        assert_eq!(
+            module.funcs,
+            vec![
+                Func {
+                    type_: 0,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32Add]),
+                },
+                Func {
+                    type_: 0,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32Sub]),
+                },
+                Func {
+                    type_: 0,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32Mul]),
+                },
+                Func {
+                    type_: 0,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32DivS]),
+                },
+                Func {
+                    type_: 0,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32DivU]),
+                },
+                Func {
+                    type_: 0,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32RemS]),
+                },
+                Func {
+                    type_: 0,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32RemU]),
+                },
+                Func {
+                    type_: 0,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32And]),
+                },
+                Func {
+                    type_: 0,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32Or]),
+                },
+                Func {
+                    type_: 0,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32Xor]),
+                },
+                Func {
+                    type_: 0,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32Shl]),
+                },
+                Func {
+                    type_: 0,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32ShrS]),
+                },
+                Func {
+                    type_: 0,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32ShrU]),
+                },
+                Func {
+                    type_: 0,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32Rotl]),
+                },
+                Func {
+                    type_: 0,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32Rotr]),
+                },
+                Func {
+                    type_: 1,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::I32Clz]),
+                },
+                Func {
+                    type_: 1,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::I32Ctz]),
+                },
+                Func {
+                    type_: 1,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::I32Popcnt]),
+                },
+                Func {
+                    type_: 1,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::I32Extend8S]),
+                },
+                Func {
+                    type_: 1,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::I32Extend16S]),
+                },
+                Func {
+                    type_: 1,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::I32Eqz]),
+                },
+                Func {
+                    type_: 0,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32Eq]),
+                },
+                Func {
+                    type_: 0,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32Ne]),
+                },
+                Func {
+                    type_: 0,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32LtS]),
+                },
+                Func {
+                    type_: 0,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32LtU]),
+                },
+                Func {
+                    type_: 0,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32LeS]),
+                },
+                Func {
+                    type_: 0,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32LeU]),
+                },
+                Func {
+                    type_: 0,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32GtS]),
+                },
+                Func {
+                    type_: 0,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32GtU]),
+                },
+                Func {
+                    type_: 0,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32GeS]),
+                },
+                Func {
+                    type_: 0,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32GeU]),
+                },
+            ],
+        );
+        assert_eq!(
+            module.exports,
+            vec![
+                Export {
+                    name: "add".to_string(),
+                    desc: ExportDesc::Func(0),
+                },
+                Export {
+                    name: "sub".to_string(),
+                    desc: ExportDesc::Func(1),
+                },
+                Export {
+                    name: "mul".to_string(),
+                    desc: ExportDesc::Func(2),
+                },
+                Export {
+                    name: "div_s".to_string(),
+                    desc: ExportDesc::Func(3),
+                },
+                Export {
+                    name: "div_u".to_string(),
+                    desc: ExportDesc::Func(4),
+                },
+                Export {
+                    name: "rem_s".to_string(),
+                    desc: ExportDesc::Func(5),
+                },
+                Export {
+                    name: "rem_u".to_string(),
+                    desc: ExportDesc::Func(6),
+                },
+                Export {
+                    name: "and".to_string(),
+                    desc: ExportDesc::Func(7),
+                },
+                Export {
+                    name: "or".to_string(),
+                    desc: ExportDesc::Func(8),
+                },
+                Export {
+                    name: "xor".to_string(),
+                    desc: ExportDesc::Func(9),
+                },
+                Export {
+                    name: "shl".to_string(),
+                    desc: ExportDesc::Func(10),
+                },
+                Export {
+                    name: "shr_s".to_string(),
+                    desc: ExportDesc::Func(11),
+                },
+                Export {
+                    name: "shr_u".to_string(),
+                    desc: ExportDesc::Func(12),
+                },
+                Export {
+                    name: "rotl".to_string(),
+                    desc: ExportDesc::Func(13),
+                },
+                Export {
+                    name: "rotr".to_string(),
+                    desc: ExportDesc::Func(14),
+                },
+                Export {
+                    name: "clz".to_string(),
+                    desc: ExportDesc::Func(15),
+                },
+                Export {
+                    name: "ctz".to_string(),
+                    desc: ExportDesc::Func(16),
+                },
+                Export {
+                    name: "popcnt".to_string(),
+                    desc: ExportDesc::Func(17),
+                },
+                Export {
+                    name: "extend8_s".to_string(),
+                    desc: ExportDesc::Func(18),
+                },
+                Export {
+                    name: "extend16_s".to_string(),
+                    desc: ExportDesc::Func(19),
+                },
+                Export {
+                    name: "eqz".to_string(),
+                    desc: ExportDesc::Func(20),
+                },
+                Export {
+                    name: "eq".to_string(),
+                    desc: ExportDesc::Func(21),
+                },
+                Export {
+                    name: "ne".to_string(),
+                    desc: ExportDesc::Func(22),
+                },
+                Export {
+                    name: "lt_s".to_string(),
+                    desc: ExportDesc::Func(23),
+                },
+                Export {
+                    name: "lt_u".to_string(),
+                    desc: ExportDesc::Func(24),
+                },
+                Export {
+                    name: "le_s".to_string(),
+                    desc: ExportDesc::Func(25),
+                },
+                Export {
+                    name: "le_u".to_string(),
+                    desc: ExportDesc::Func(26),
+                },
+                Export {
+                    name: "gt_s".to_string(),
+                    desc: ExportDesc::Func(27),
+                },
+                Export {
+                    name: "gt_u".to_string(),
+                    desc: ExportDesc::Func(28),
+                },
+                Export {
+                    name: "ge_s".to_string(),
+                    desc: ExportDesc::Func(29),
+                },
+                Export {
+                    name: "ge_u".to_string(),
+                    desc: ExportDesc::Func(30),
+                },
+            ],
         );
     }
 }
