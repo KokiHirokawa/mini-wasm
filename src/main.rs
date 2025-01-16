@@ -1,11 +1,11 @@
-use std::fs::File;
-use std::io::Read;
 use crate::decoder::Decoder;
 use crate::execution::instance::{alloc_module, invoke, Store, Value};
+use std::fs::File;
+use std::io::Read;
 
 mod decoder;
-mod structure;
 mod execution;
+mod structure;
 
 fn main() {
     let mut file = File::open("./tests/inputs/i32.add.wasm").unwrap();

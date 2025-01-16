@@ -1,18 +1,20 @@
-use std::iter::repeat_n;
 use crate::structure::instructions::expression::{Expr, Instr};
 use crate::structure::modules::export::{Export, ExportDesc};
 use crate::structure::modules::function::Func;
 use crate::structure::modules::indice::{FuncIdx, LocalIdx, TypeIdx};
 use crate::structure::modules::module::Module;
 use crate::structure::types::function::FuncType;
-use crate::structure::types::value::ValType;
 use crate::structure::types::value::NumType;
+use crate::structure::types::value::ValType;
+use std::iter::repeat_n;
 
 #[derive(Debug)]
 pub struct DecodingError {}
 
 impl DecodingError {
-    fn new() -> Self { Self {} }
+    fn new() -> Self {
+        Self {}
+    }
 }
 
 pub struct Decoder<'a> {
@@ -224,10 +226,7 @@ impl Decoder<'_> {
         Ok(exports)
     }
 
-    fn decode_code_section(
-        &mut self,
-        type_idxs: &[TypeIdx],
-    ) -> Result<Vec<Func>, DecodingError> {
+    fn decode_code_section(&mut self, type_idxs: &[TypeIdx]) -> Result<Vec<Func>, DecodingError> {
         let section_size = self.decode_u32()?;
         println!("size of code section: {}", section_size);
 
@@ -269,7 +268,7 @@ impl Decoder<'_> {
                         let idx = self.input[self.pos];
                         self.pos += 1;
                         Instr::LocalGet(idx as LocalIdx)
-                    },
+                    }
                     0x45 => Instr::I32Eqz,
                     0x46 => Instr::I32Eq,
                     0x47 => Instr::I32Ne,
@@ -378,7 +377,7 @@ impl Decoder<'_> {
             let func = Func {
                 type_: type_idxs[i as usize],
                 locals,
-                body
+                body,
             };
             funcs.push(func);
         }
@@ -410,9 +409,9 @@ impl Decoder<'_> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use std::fs::File;
     use std::io::Read;
-    use super::*;
 
     fn decode(filename: &str) -> Result<Module, DecodingError> {
         let mut file = File::open(format!("./tests/inputs/{}.wasm", filename)).unwrap();
@@ -429,7 +428,10 @@ mod tests {
         assert_eq!(
             module.types,
             vec![FuncType {
-                parameters: vec![ValType::NumType(NumType::I32), ValType::NumType(NumType::I32)],
+                parameters: vec![
+                    ValType::NumType(NumType::I32),
+                    ValType::NumType(NumType::I32)
+                ],
                 results: vec![ValType::NumType(NumType::I32)],
             }],
         );
@@ -457,7 +459,10 @@ mod tests {
         assert_eq!(
             module.types,
             vec![FuncType {
-                parameters: vec![ValType::NumType(NumType::I32), ValType::NumType(NumType::I32)],
+                parameters: vec![
+                    ValType::NumType(NumType::I32),
+                    ValType::NumType(NumType::I32)
+                ],
                 results: vec![ValType::NumType(NumType::I32)],
             }],
         );
@@ -513,7 +518,10 @@ mod tests {
         assert_eq!(
             module.types,
             vec![FuncType {
-                parameters: vec![ValType::NumType(NumType::I32), ValType::NumType(NumType::I32)],
+                parameters: vec![
+                    ValType::NumType(NumType::I32),
+                    ValType::NumType(NumType::I32)
+                ],
                 results: vec![ValType::NumType(NumType::I32)],
             }],
         );
@@ -598,7 +606,10 @@ mod tests {
             module.types,
             vec![
                 FuncType {
-                    parameters: vec![ValType::NumType(NumType::I32), ValType::NumType(NumType::I32)],
+                    parameters: vec![
+                        ValType::NumType(NumType::I32),
+                        ValType::NumType(NumType::I32)
+                    ],
                     results: vec![ValType::NumType(NumType::I32)],
                 },
                 FuncType {
@@ -977,18 +988,16 @@ mod tests {
 
         assert_eq!(
             module.types,
-            vec![
-                FuncType {
-                    parameters: vec![
-                        ValType::NumType(NumType::I64),
-                        ValType::NumType(NumType::F32),
-                        ValType::NumType(NumType::F64),
-                        ValType::NumType(NumType::I32),
-                        ValType::NumType(NumType::I32),
-                    ],
-                    results: vec![],
-                },
-            ],
+            vec![FuncType {
+                parameters: vec![
+                    ValType::NumType(NumType::I64),
+                    ValType::NumType(NumType::F32),
+                    ValType::NumType(NumType::F64),
+                    ValType::NumType(NumType::I32),
+                    ValType::NumType(NumType::I32),
+                ],
+                results: vec![],
+            },],
         );
         assert_eq!(
             module.funcs,

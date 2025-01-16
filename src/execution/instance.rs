@@ -1,17 +1,12 @@
-use std::iter::zip;
 use crate::structure::instructions::expression::Instr;
 use crate::structure::modules::export::ExportDesc;
 use crate::structure::modules::function::Func;
 use crate::structure::modules::module::Module;
 use crate::structure::types::function::FuncType;
 use crate::structure::types::value::ValType;
+use std::iter::zip;
 
-pub fn invoke(
-    store: &Store,
-    module: &ModuleInst,
-    func_name: String,
-    values: Vec<Value>,
-) {
+pub fn invoke(store: &Store, module: &ModuleInst, func_name: String, values: Vec<Value>) {
     let Some(export_inst) = module.exports.iter().find(|e| e.name == func_name) else {
         return;
     };
@@ -50,10 +45,7 @@ pub fn invoke(
     }
 }
 
-pub fn alloc_module(
-    store: Store,
-    module: Module,
-) -> (Store, ModuleInst) {
+pub fn alloc_module(store: Store, module: Module) -> (Store, ModuleInst) {
     let mut store = store;
 
     let mut types = Vec::new();
@@ -74,7 +66,7 @@ pub fn alloc_module(
         let export_inst = ExportInst {
             name: export.name,
             value: match export.desc {
-                ExportDesc::Func(func_index) => { ExternVal::Func(func_index) }
+                ExportDesc::Func(func_index) => ExternVal::Func(func_index),
             },
         };
         exports.push(export_inst);
@@ -132,11 +124,17 @@ struct Stack {
 }
 
 impl Stack {
-    fn new() -> Self { Self { values: Vec::new() } }
+    fn new() -> Self {
+        Self { values: Vec::new() }
+    }
 
-    fn push(&mut self, val: StackValue) { self.values.push(val) }
+    fn push(&mut self, val: StackValue) {
+        self.values.push(val)
+    }
 
-    fn pop(&mut self) -> Option<StackValue> { self.values.pop() }
+    fn pop(&mut self) -> Option<StackValue> {
+        self.values.pop()
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -146,15 +144,19 @@ enum StackValue {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::structure::instructions::expression::{Expr, Instr};
     use crate::structure::modules::export::{Export, ExportDesc};
     use crate::structure::types::value::{NumType, ValType};
-    use super::*;
 
     #[test]
     fn test_empty() {
         let store = Store { funcs: Vec::new() };
-        let module = Module { types: Vec::new(), funcs: Vec::new(), exports: Vec::new() };
+        let module = Module {
+            types: Vec::new(),
+            funcs: Vec::new(),
+            exports: Vec::new(),
+        };
         let (store, module_inst) = alloc_module(store, module);
         assert_eq!(store.funcs, Vec::new());
         assert_eq!(module_inst.func_addrs, Vec::new());
@@ -166,53 +168,49 @@ mod tests {
     fn test_func() {
         let store = Store { funcs: Vec::new() };
         let module = Module {
-            types: vec![
-                FuncType {
-                    parameters: vec![ValType::NumType(NumType::I32)],
-                    results: vec![ValType::NumType(NumType::I32)],
-                }
-            ],
-            funcs: vec![
-                Func {
-                    type_: 0,
-                    locals: Vec::new(),
-                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32Add]),
-                }
-            ],
-            exports: vec![Export { name: "add".to_string(), desc: ExportDesc::Func(0) }],
+            types: vec![FuncType {
+                parameters: vec![ValType::NumType(NumType::I32)],
+                results: vec![ValType::NumType(NumType::I32)],
+            }],
+            funcs: vec![Func {
+                type_: 0,
+                locals: Vec::new(),
+                body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32Add]),
+            }],
+            exports: vec![Export {
+                name: "add".to_string(),
+                desc: ExportDesc::Func(0),
+            }],
         };
         let (store, module_inst) = alloc_module(store, module);
         assert_eq!(
             store.funcs,
-            vec![
-                FuncInst {
-                    type_: FuncType {
-                        parameters: vec![ValType::NumType(NumType::I32)],
-                        results: vec![ValType::NumType(NumType::I32)],
-                    },
-                    code: Func {
-                        type_: 0,
-                        locals: Vec::new(),
-                        body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32Add]),
-                    }
+            vec![FuncInst {
+                type_: FuncType {
+                    parameters: vec![ValType::NumType(NumType::I32)],
+                    results: vec![ValType::NumType(NumType::I32)],
+                },
+                code: Func {
+                    type_: 0,
+                    locals: Vec::new(),
+                    body: Expr(vec![Instr::LocalGet(0), Instr::LocalGet(1), Instr::I32Add]),
                 }
-            ]
+            }]
         );
         assert_eq!(
             module_inst.types,
-            vec![
-                FuncType {
-                    parameters: vec![ValType::NumType(NumType::I32)],
-                    results: vec![ValType::NumType(NumType::I32)],
-                }
-            ]
+            vec![FuncType {
+                parameters: vec![ValType::NumType(NumType::I32)],
+                results: vec![ValType::NumType(NumType::I32)],
+            }]
         );
         assert_eq!(module_inst.func_addrs, vec![0]);
         assert_eq!(
             module_inst.exports,
-            vec![
-                ExportInst { name: "add".to_string(), value: ExternVal::Func(0) },
-            ]
+            vec![ExportInst {
+                name: "add".to_string(),
+                value: ExternVal::Func(0)
+            },]
         );
     }
 }
