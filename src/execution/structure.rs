@@ -3,26 +3,26 @@ use crate::structure::instructions::expression::Instr;
 use std::rc::Weak;
 
 #[derive(Debug)]
-struct Stack {
+pub struct Stack {
     values: Vec<StackValue>,
 }
 
 impl Stack {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self { values: Vec::new() }
     }
 
-    fn push(&mut self, val: StackValue) {
+    pub fn push(&mut self, val: StackValue) {
         self.values.push(val)
     }
 
-    fn pop(&mut self) -> Option<StackValue> {
+    pub fn pop(&mut self) -> Option<StackValue> {
         self.values.pop()
     }
 }
 
 #[derive(Debug)]
-enum StackValue {
+pub enum StackValue {
     Value(Val),
     Label(Label),
     Frame(Frame),
@@ -36,9 +36,9 @@ pub struct Label {
 
 #[derive(Debug)]
 pub struct Frame {
-    return_arity: u32,
-    locals: Vec<Val>,
-    module_inst: Weak<ModuleInst>,
+    pub return_arity: u32,
+    pub locals: Vec<Val>,
+    // pub module_inst: Weak<ModuleInst>,
 }
 
 #[derive(Debug, PartialEq)]

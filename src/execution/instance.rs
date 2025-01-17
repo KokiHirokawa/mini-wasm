@@ -1,3 +1,4 @@
+use crate::execution::structure::{Frame, Stack, StackValue, Val};
 use crate::structure::instructions::expression::Instr;
 use crate::structure::modules::export::ExportDesc;
 use crate::structure::modules::function::Func;
@@ -6,7 +7,7 @@ use crate::structure::types::function::FuncType;
 use crate::structure::types::value::ValType;
 use std::iter::zip;
 
-pub fn invoke(store: &Store, module: &ModuleInst, func_name: String, values: Vec<Value>) {
+pub fn invoke(store: &Store, module: &ModuleInst, func_name: String, values: Vec<Val>) {
     let Some(export_inst) = module.exports.iter().find(|e| e.name == func_name) else {
         return;
     };
@@ -22,27 +23,27 @@ pub fn invoke(store: &Store, module: &ModuleInst, func_name: String, values: Vec
 
     let mut stack = Stack::new();
 
-    for instr in &func_inst.code.body.0 {
-        match instr {
-            Instr::I32Add => {
-                let lhs = match stack.pop() {
-                    Some(StackValue::Value(Value::I32(x))) => x,
-                    None => return,
-                };
-                let rhs = match stack.pop() {
-                    Some(StackValue::Value(Value::I32(x))) => x,
-                    None => return,
-                };
-                stack.push(StackValue::Value(Value::I32(lhs + rhs)));
-            }
-            Instr::LocalGet(idx) => {
-                let val = &values[0];
-                stack.push(StackValue::Value(val.clone()));
-            }
-            _ => unimplemented!(),
-        }
-        println!("{:?}", stack);
+    let dummy_frame = Frame {
+        return_arity: 0,
+        locals: Vec::new(),
+    };
+    stack.push(StackValue::Frame(dummy_frame));
+
+    for value in values {
+        stack.push(StackValue::Value(value))
     }
+
+    // invoke the function
+
+    let mut results = Vec::new();
+    for _ in 0..func_type.results.len() {
+        results.push(stack.pop());
+    }
+
+    // pop the dummy frame
+    stack.pop();
+
+    println!("👻 {:?}", results);
 }
 
 pub fn alloc_module(store: Store, module: Module) -> (Store, ModuleInst) {
@@ -80,11 +81,6 @@ pub fn alloc_module(store: Store, module: Module) -> (Store, ModuleInst) {
     (store, module_inst)
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum Value {
-    I32(i32),
-}
-
 #[derive(Debug)]
 pub struct Store {
     pub funcs: Vec<FuncInst>,
@@ -116,30 +112,6 @@ struct ExportInst {
 #[derive(Debug, PartialEq)]
 enum ExternVal {
     Func(FuncAddr),
-}
-
-#[derive(Debug, PartialEq)]
-struct Stack {
-    values: Vec<StackValue>,
-}
-
-impl Stack {
-    fn new() -> Self {
-        Self { values: Vec::new() }
-    }
-
-    fn push(&mut self, val: StackValue) {
-        self.values.push(val)
-    }
-
-    fn pop(&mut self) -> Option<StackValue> {
-        self.values.pop()
-    }
-}
-
-#[derive(Debug, PartialEq)]
-enum StackValue {
-    Value(Value),
 }
 
 #[cfg(test)]

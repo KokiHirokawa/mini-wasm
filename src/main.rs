@@ -1,5 +1,6 @@
 use crate::decoder::Decoder;
-use crate::execution::instance::{alloc_module, invoke, Store, Value};
+use crate::execution::instance::{alloc_module, invoke, Store};
+use crate::execution::structure::Val;
 use std::fs::File;
 use std::io::Read;
 
@@ -25,6 +26,6 @@ fn main() {
         &store,
         &module_inst,
         "add".to_string(),
-        vec![Value::I32(1), Value::I32(2)],
+        vec![Val::I32(1), Val::I32(2)],
     );
 }
