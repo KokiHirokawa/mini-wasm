@@ -1,6 +1,4 @@
-use crate::execution::instance::ModuleInst;
 use crate::structure::instructions::expression::Instr;
-use std::rc::Weak;
 
 #[derive(Debug)]
 pub struct Stack {
@@ -30,8 +28,8 @@ pub enum StackValue {
 
 #[derive(Debug)]
 pub struct Label {
-    argument_arity: u32,
-    instructions: Vec<Instr>,
+    pub argument_arity: u32,
+    pub instructions: Vec<Instr>,
 }
 
 #[derive(Debug)]
@@ -41,7 +39,7 @@ pub struct Frame {
     // pub module_inst: Weak<ModuleInst>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Val {
     I32(i32),
     I64(i64),

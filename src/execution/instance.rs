@@ -1,9 +1,10 @@
-use crate::execution::structure::{Frame, Stack, StackValue, Val};
+use crate::execution::structure::{Frame, Label, Stack, StackValue, Val};
 use crate::structure::instructions::expression::Instr;
 use crate::structure::modules::export::ExportDesc;
 use crate::structure::modules::function::Func;
 use crate::structure::modules::module::Module;
 use crate::structure::types::function::FuncType;
+use crate::structure::types::value::NumType;
 use crate::structure::types::value::ValType;
 use std::iter::zip;
 
@@ -30,10 +31,71 @@ pub fn invoke(store: &Store, module: &ModuleInst, func_name: String, values: Vec
     stack.push(StackValue::Frame(dummy_frame));
 
     for value in values {
-        stack.push(StackValue::Value(value))
+        stack.push(StackValue::Value(value));
     }
 
     // invoke the function
+    {
+        let return_arity = func_type.results.len() as u32;
+
+        let argument_arity = func_type.parameters.len();
+        let mut locals = Vec::new();
+        for _ in 0..argument_arity {
+            let value = match stack.pop() {
+                Some(StackValue::Value(value)) => value,
+                _ => panic!(),
+            };
+            locals.push(value);
+            locals.reverse();
+
+            for local in &func_inst.code.locals {
+                let local = match local {
+                    ValType::NumType(NumType::I32) => Val::I32(0),
+                    ValType::NumType(NumType::I64) => Val::I64(0),
+                    ValType::NumType(NumType::F32) => Val::F32(0.0),
+                    ValType::NumType(NumType::F64) => Val::F64(0.0),
+                };
+                locals.push(local);
+            }
+        }
+
+        let frame = Frame {
+            return_arity,
+            locals,
+        };
+        // push frame to the stack
+        // stack.push(StackValue::Frame(frame));
+
+        let label = Label {
+            argument_arity: return_arity,
+            instructions: func_inst.code.body.0.clone(),
+        };
+        // push label to the stack
+        // stack.push(StackValue::Label(label));
+
+        // jump to the start of the instruction sequence
+        for instr in label.instructions.clone() {
+            match instr {
+                Instr::LocalGet(idx) => {
+                    let value = frame.locals[idx as usize].clone();
+                    stack.push(StackValue::Value(value));
+                }
+                Instr::I32Add => {
+                    run_binop(&mut stack, move |lhs, rhs| lhs + rhs);
+                }
+                Instr::I32Sub => {
+                    run_binop(&mut stack, move |lhs, rhs| lhs - rhs);
+                }
+                Instr::I32Mul => {
+                    run_binop(&mut stack, move |lhs, rhs| lhs * rhs);
+                }
+                Instr::I32DivS => {
+                    run_binop(&mut stack, move |lhs, rhs| lhs / rhs);
+                }
+                _ => unimplemented!("{:?}", instr),
+            }
+        }
+    }
 
     let mut results = Vec::new();
     for _ in 0..func_type.results.len() {
@@ -44,6 +106,22 @@ pub fn invoke(store: &Store, module: &ModuleInst, func_name: String, values: Vec
     stack.pop();
 
     println!("👻 {:?}", results);
+}
+
+pub fn run_binop<F>(stack: &mut Stack, f: F)
+where
+    F: FnOnce(i32, i32) -> i32,
+{
+    let rhs = match stack.pop() {
+        Some(StackValue::Value(Val::I32(value))) => value,
+        _ => panic!(),
+    };
+    let lhs = match stack.pop() {
+        Some(StackValue::Value(Val::I32(value))) => value,
+        _ => panic!(),
+    };
+    let result = f(lhs, rhs);
+    stack.push(StackValue::Value(Val::I32(result)));
 }
 
 pub fn alloc_module(store: Store, module: Module) -> (Store, ModuleInst) {
