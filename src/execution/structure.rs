@@ -1,4 +1,6 @@
 use crate::structure::instructions::expression::Instr;
+use crate::structure::modules::function::Func;
+use crate::structure::types::function::FuncType;
 
 #[derive(Debug)]
 pub struct Stack {
@@ -46,3 +48,18 @@ pub enum Val {
     F32(f32),
     F64(f64),
 }
+
+#[derive(Debug)]
+pub struct Store {
+    pub funcs: Vec<FuncInst>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct FuncInst {
+    pub type_: FuncType,
+    // module: Weak<ModuleInst>,
+    pub code: Func,
+}
+
+pub type Addr = u32;
+pub type FuncAddr = Addr;

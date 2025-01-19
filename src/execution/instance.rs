@@ -1,4 +1,6 @@
-use crate::execution::structure::{Frame, Label, Stack, StackValue, Val};
+use crate::execution::structure::{
+    Frame, FuncAddr, FuncInst, Label, Stack, StackValue, Store, Val,
+};
 use crate::structure::instructions::expression::Instr;
 use crate::structure::modules::export::ExportDesc;
 use crate::structure::modules::function::Func;
@@ -124,20 +126,17 @@ where
     stack.push(StackValue::Value(Val::I32(result)));
 }
 
-pub fn alloc_module(store: Store, module: Module) -> (Store, ModuleInst) {
-    let mut store = store;
+pub fn instantiate(store: &mut Store, module: Module) -> ModuleInst {
+    let mut module_inst = ModuleInst {
+        types: module.types.clone(),
+        func_addrs: Vec::new(),
+        exports: Vec::new(),
+    };
 
-    let mut types = Vec::new();
     let mut func_addrs = Vec::new();
-    for (i, (func_type, func)) in zip(&module.types, &module.funcs).enumerate() {
-        let func_inst = FuncInst {
-            type_: func_type.clone(),
-            code: func.clone(),
-        };
-        store.funcs.push(func_inst);
-
-        types.push(func_type.clone());
-        func_addrs.push(i as FuncAddr);
+    for func in &module.funcs {
+        let func_addr = allocate_function(store, func.clone(), &module_inst);
+        func_addrs.push(func_addr);
     }
 
     let mut exports = Vec::new();
@@ -151,17 +150,20 @@ pub fn alloc_module(store: Store, module: Module) -> (Store, ModuleInst) {
         exports.push(export_inst);
     }
 
-    let module_inst = ModuleInst {
-        types,
-        func_addrs,
-        exports,
-    };
-    (store, module_inst)
+    module_inst.func_addrs.extend(func_addrs);
+    module_inst.exports.extend(exports);
+
+    module_inst
 }
 
-#[derive(Debug)]
-pub struct Store {
-    pub funcs: Vec<FuncInst>,
+fn allocate_function(store: &mut Store, func: Func, module_inst: &ModuleInst) -> FuncAddr {
+    let func_inst = FuncInst {
+        type_: module_inst.types[func.type_ as usize].clone(),
+        code: func,
+    };
+    let addr = store.funcs.len() as u32;
+    store.funcs.push(func_inst);
+    addr
 }
 
 #[derive(Debug, PartialEq)]
@@ -170,16 +172,6 @@ pub struct ModuleInst {
     pub func_addrs: Vec<FuncAddr>,
     pub exports: Vec<ExportInst>,
 }
-
-#[derive(Debug, PartialEq)]
-pub struct FuncInst {
-    type_: FuncType,
-    // module: Weak<ModuleInst>,
-    code: Func,
-}
-
-type Addr = u32;
-type FuncAddr = Addr;
 
 #[derive(Debug, PartialEq)]
 struct ExportInst {

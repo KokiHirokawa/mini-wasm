@@ -1,6 +1,6 @@
 use crate::decoder::Decoder;
-use crate::execution::instance::{alloc_module, invoke, Store};
-use crate::execution::structure::Val;
+use crate::execution::instance::{instantiate, invoke};
+use crate::execution::structure::{Store, Val};
 use clap::Parser;
 use std::fs::File;
 use std::io::Read;
@@ -33,8 +33,8 @@ fn main() {
     let mut decoder = Decoder::new(&input);
     let module = decoder.decode().unwrap();
 
-    let store = Store { funcs: Vec::new() };
-    let (store, module_inst) = alloc_module(store, module);
+    let mut store = Store { funcs: Vec::new() };
+    let module_inst = instantiate(&mut store, module);
 
     let arguments = cli.arguments.iter().map(|x| Val::I32(*x)).collect();
     invoke(&store, &module_inst, cli.exported_function, arguments);

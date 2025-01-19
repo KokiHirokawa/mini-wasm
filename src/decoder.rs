@@ -54,25 +54,19 @@ impl Decoder<'_> {
             match section_id {
                 1 => {
                     module.types = self.decode_type_section()?;
-                    dbg!(&module.types);
                 }
                 3 => {
                     type_idxs = self.decode_function_section()?;
-                    dbg!(&type_idxs);
                 }
                 7 => {
                     module.exports = self.decode_export_section()?;
-                    dbg!(&module.exports);
                 }
                 10 => {
                     module.funcs = self.decode_code_section(&type_idxs)?;
-                    dbg!(&module.funcs);
                 }
                 _ => {
                     let section_size = self.input[self.pos];
                     self.pos += 1;
-
-                    println!("id: {}, size: {}", section_id, section_size);
 
                     self.pos += section_size as usize;
                 }
@@ -117,8 +111,6 @@ impl Decoder<'_> {
 
         let section_size = self.input[self.pos];
         self.pos += 1;
-
-        println!("size of type section: {}", section_size);
 
         let num_of_func_types = self.input[self.pos];
         self.pos += 1;
@@ -175,8 +167,6 @@ impl Decoder<'_> {
         let section_size = self.input[self.pos];
         self.pos += 1;
 
-        println!("size of function section: {}", section_size);
-
         let num_of_idxs = self.input[self.pos];
         self.pos += 1;
 
@@ -193,7 +183,6 @@ impl Decoder<'_> {
         let mut exports = Vec::new();
 
         let section_size = self.decode_u32()?;
-        println!("size of export section: {}", section_size);
 
         let num_of_exports = self.input[self.pos];
         self.pos += 1;
@@ -228,7 +217,6 @@ impl Decoder<'_> {
 
     fn decode_code_section(&mut self, type_idxs: &[TypeIdx]) -> Result<Vec<Func>, DecodingError> {
         let section_size = self.decode_u32()?;
-        println!("size of code section: {}", section_size);
 
         let num_of_funcs = self.decode_u32()?;
 
