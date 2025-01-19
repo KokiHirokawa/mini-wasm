@@ -1,6 +1,7 @@
 use crate::decoder::Decoder;
 use crate::execution::instance::{alloc_module, invoke, Store};
 use crate::execution::structure::Val;
+use clap::Parser;
 use std::fs::File;
 use std::io::Read;
 
@@ -8,15 +9,24 @@ mod decoder;
 mod execution;
 mod structure;
 
+#[derive(Parser)]
+#[command(version)]
+struct Cli {
+    filename: String,
+
+    /// Run exported function by name
+    #[arg(short = 'r', long = "run-export", value_name = "FUNCTION")]
+    exported_function: String, // FIXME: Option<String>
+
+    /// Add argument to an exported function execution
+    #[arg(short = 'a', long = "argument", value_name = "ARGUMENT")]
+    arguments: Vec<i32>, // FIXME: Vec<String>
+}
+
 fn main() {
-    let filename = std::env::args().nth(1).expect("no filename given");
-    let function_name = std::env::args().nth(2).expect("no function name given");
+    let cli = Cli::parse();
 
-    let lhs = std::env::args().nth(3).expect("no lhs given").parse::<i32>().unwrap();
-    let rhs = std::env::args().nth(4).expect("no rhs given").parse::<i32>().unwrap();
-
-    let path = format!("./tests/inputs/{}", filename);
-    let mut file = File::open(path).unwrap();
+    let mut file = File::open(cli.filename).unwrap();
     let mut input = Vec::new();
     file.read_to_end(&mut input).unwrap();
 
@@ -25,10 +35,7 @@ fn main() {
 
     let store = Store { funcs: Vec::new() };
     let (store, module_inst) = alloc_module(store, module);
-    invoke(
-        &store,
-        &module_inst,
-        function_name,
-        vec![Val::I32(lhs), Val::I32(rhs)],
-    );
+
+    let arguments = cli.arguments.iter().map(|x| Val::I32(*x)).collect();
+    invoke(&store, &module_inst, cli.exported_function, arguments);
 }
