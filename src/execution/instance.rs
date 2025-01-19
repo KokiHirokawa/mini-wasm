@@ -83,16 +83,34 @@ pub fn invoke(store: &Store, module: &ModuleInst, func_name: String, values: Vec
                     stack.push(StackValue::Value(value));
                 }
                 Instr::I32Add => {
-                    run_binop(&mut stack, move |lhs, rhs| lhs + rhs);
+                    run_binop(&mut stack, |lhs, rhs| lhs + rhs);
                 }
                 Instr::I32Sub => {
-                    run_binop(&mut stack, move |lhs, rhs| lhs - rhs);
+                    run_binop(&mut stack, |lhs, rhs| lhs - rhs);
                 }
                 Instr::I32Mul => {
-                    run_binop(&mut stack, move |lhs, rhs| lhs * rhs);
+                    run_binop(&mut stack, |lhs, rhs| lhs * rhs);
                 }
                 Instr::I32DivS => {
-                    run_binop(&mut stack, move |lhs, rhs| lhs / rhs);
+                    run_binop(&mut stack, |lhs, rhs| lhs / rhs);
+                }
+                Instr::I32DivU => {
+                    run_binop(&mut stack, |lhs, rhs| lhs / rhs);
+                }
+                Instr::I32RemS => {
+                    run_binop(&mut stack, |lhs, rhs| lhs % rhs);
+                }
+                Instr::I32RemU => {
+                    run_binop(&mut stack, |lhs, rhs| lhs % rhs);
+                }
+                Instr::I32And => {
+                    run_binop(&mut stack, |lhs, rhs| lhs & rhs);
+                }
+                Instr::I32Or => {
+                    run_binop(&mut stack, |lhs, rhs| lhs | rhs);
+                }
+                Instr::I32Xor => {
+                    run_binop(&mut stack, |lhs, rhs| lhs ^ rhs);
                 }
                 _ => unimplemented!("{:?}", instr),
             }
