@@ -112,6 +112,30 @@ pub fn invoke(store: &Store, module: &ModuleInst, func_name: String, values: Vec
                 Instr::I32Xor => {
                     run_binop(&mut stack, |lhs, rhs| lhs ^ rhs);
                 }
+                Instr::I32Shl => {
+                    run_binop(&mut stack, |lhs, rhs| lhs << rhs);
+                }
+                Instr::I32ShrS => {
+                    run_binop(&mut stack, |lhs, rhs| lhs >> rhs);
+                }
+                Instr::I32ShrU => {
+                    run_binop(&mut stack, |lhs, rhs| lhs >> rhs);
+                }
+                Instr::I32Rotl => {
+                    run_binop(&mut stack, |lhs, rhs| (lhs << rhs) | (rhs >> (32 - rhs)));
+                }
+                Instr::I32Rotr => {
+                    run_binop(&mut stack, |lhs, rhs| (lhs >> rhs) | lhs << (32 - rhs));
+                }
+                Instr::I32Clz => {
+                    run_unop(&mut stack, |x| x.leading_zeros() as i32);
+                }
+                Instr::I32Ctz => {
+                    run_unop(&mut stack, |x| x.trailing_zeros() as i32);
+                }
+                Instr::I32Popcnt => {
+                    run_unop(&mut stack, |x| x.count_ones() as i32);
+                }
                 _ => unimplemented!("{:?}", instr),
             }
         }
@@ -141,6 +165,18 @@ where
         _ => panic!(),
     };
     let result = f(lhs, rhs);
+    stack.push(StackValue::Value(Val::I32(result)));
+}
+
+pub fn run_unop<F>(stack: &mut Stack, f: F)
+where
+    F: FnOnce(i32) -> i32,
+{
+    let x = match stack.pop() {
+        Some(StackValue::Value(Val::I32(value))) => value,
+        _ => panic!(),
+    };
+    let result = f(x);
     stack.push(StackValue::Value(Val::I32(result)));
 }
 
