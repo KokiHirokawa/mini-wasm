@@ -136,6 +136,59 @@ pub fn invoke(store: &Store, module: &ModuleInst, func_name: String, values: Vec
                 Instr::I32Popcnt => {
                     run_unop(&mut stack, |x| x.count_ones() as i32);
                 }
+                Instr::I32Extend8S => {
+                    run_unop(&mut stack, |x| (x as i8) as i32);
+                }
+                Instr::I32Extend16S => {
+                    run_unop(&mut stack, |x| (x as i16) as i32);
+                }
+                Instr::I32Eqz => {
+                    run_unop(&mut stack, |x| x.eq(&0) as i32);
+                }
+                Instr::I32Eq => {
+                    run_binop(&mut stack, |lhs, rhs| lhs.eq(&rhs) as i32);
+                }
+                Instr::I32Ne => {
+                    run_binop(&mut stack, |lhs, rhs| lhs.ne(&rhs) as i32);
+                }
+                Instr::I32LtS => {
+                    run_binop(&mut stack, |lhs, rhs| lhs.lt(&rhs) as i32);
+                }
+                Instr::I32LtU => run_binop(&mut stack, |lhs, rhs| {
+                    let lhs = lhs as u32;
+                    let rhs = rhs as u32;
+                    lhs.lt(&rhs) as i32
+                }),
+                Instr::I32LeS => {
+                    run_binop(&mut stack, |lhs, rhs| (lhs <= rhs) as i32);
+                }
+                Instr::I32LeU => {
+                    run_binop(&mut stack, |lhs, rhs| {
+                        let lhs = lhs as u32;
+                        let rhs = rhs as u32;
+                        lhs.le(&rhs) as i32
+                    });
+                }
+                Instr::I32GtS => {
+                    run_binop(&mut stack, |lhs, rhs| lhs.gt(&rhs) as i32);
+                }
+                Instr::I32GtU => {
+                    run_binop(&mut stack, |lhs, rhs| {
+                        let lhs = lhs as u32;
+                        let rhs = rhs as u32;
+                        lhs.gt(&rhs) as i32
+                    });
+                }
+                Instr::I32GeS => {
+                    run_binop(&mut stack, |lhs, rhs| lhs.ge(&lhs) as i32);
+                }
+                Instr::I32GeU => {
+                    run_binop(&mut stack, |lhs, rhs| {
+                        let lhs = lhs as u32;
+                        let rhs = rhs as u32;
+                        lhs.ge(&rhs) as i32
+                    });
+                }
                 _ => unimplemented!("{:?}", instr),
             }
         }
