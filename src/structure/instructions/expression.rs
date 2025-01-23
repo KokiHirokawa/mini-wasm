@@ -1,12 +1,24 @@
-use crate::structure::modules::indice::LocalIdx;
+use crate::structure::modules::indice::{FuncIdx, LocalIdx};
+use crate::structure::types::value::ValType;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Expr(pub Vec<Instr>);
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum BlockType {
+    Empty,
+    ValType(ValType),
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Instr {
+    If(BlockType, Vec<Instr>, Vec<Instr>),
+    Else,
+    Call(FuncIdx),
     Drop,
     LocalGet(LocalIdx),
+    I32Const(i32),
+    I64Const(i64),
     I32Eqz,
     I32Eq,
     I32Ne,
@@ -107,4 +119,5 @@ pub enum Instr {
     F64Copysign,
     I32Extend8S,
     I32Extend16S,
+    End,
 }

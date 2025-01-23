@@ -1,4 +1,5 @@
-use crate::structure::instructions::expression::{Expr, Instr};
+use crate::structure::instructions::expression::Instr::If;
+use crate::structure::instructions::expression::{BlockType, Expr, Instr};
 use crate::structure::modules::export::{Export, ExportDesc};
 use crate::structure::modules::function::Func;
 use crate::structure::modules::indice::{FuncIdx, LocalIdx, TypeIdx};
@@ -243,125 +244,13 @@ impl Decoder<'_> {
 
             let mut body = Expr(Vec::new());
             loop {
-                let byte = self.input[self.pos];
-                self.pos += 1;
-
-                if byte == 0x0b {
+                let instr = self.decode_instruction()?;
+                if instr == Instr::End {
                     break;
                 }
-
-                let instr = match byte {
-                    0x1A => Instr::Drop,
-                    0x20 => {
-                        let idx = self.input[self.pos];
-                        self.pos += 1;
-                        Instr::LocalGet(idx as LocalIdx)
-                    }
-                    0x45 => Instr::I32Eqz,
-                    0x46 => Instr::I32Eq,
-                    0x47 => Instr::I32Ne,
-                    0x48 => Instr::I32LtS,
-                    0x49 => Instr::I32LtU,
-                    0x4a => Instr::I32GtS,
-                    0x4b => Instr::I32GtU,
-                    0x4c => Instr::I32LeS,
-                    0x4d => Instr::I32LeU,
-                    0x4e => Instr::I32GeS,
-                    0x4f => Instr::I32GeU,
-                    0x50 => Instr::I64Eqz,
-                    0x51 => Instr::I64Eq,
-                    0x52 => Instr::I64Ne,
-                    0x53 => Instr::I64LtS,
-                    0x54 => Instr::I64LtU,
-                    0x55 => Instr::I64GtS,
-                    0x56 => Instr::I64GtU,
-                    0x57 => Instr::I64LeS,
-                    0x58 => Instr::I64LeU,
-                    0x59 => Instr::I64GeS,
-                    0x5a => Instr::I64GeU,
-                    0x5b => Instr::F32Eq,
-                    0x5c => Instr::F32Ne,
-                    0x5d => Instr::F32Lt,
-                    0x5e => Instr::F32Gt,
-                    0x5f => Instr::F32Le,
-                    0x60 => Instr::F32Ge,
-                    0x61 => Instr::F64Eq,
-                    0x62 => Instr::F64Ne,
-                    0x63 => Instr::F64Lt,
-                    0x64 => Instr::F64Gt,
-                    0x65 => Instr::F64Le,
-                    0x66 => Instr::F64Ge,
-                    0x67 => Instr::I32Clz,
-                    0x68 => Instr::I32Ctz,
-                    0x69 => Instr::I32Popcnt,
-                    0x6a => Instr::I32Add,
-                    0x6b => Instr::I32Sub,
-                    0x6c => Instr::I32Mul,
-                    0x6d => Instr::I32DivS,
-                    0x6e => Instr::I32DivU,
-                    0x6f => Instr::I32RemS,
-                    0x70 => Instr::I32RemU,
-                    0x71 => Instr::I32And,
-                    0x72 => Instr::I32Or,
-                    0x73 => Instr::I32Xor,
-                    0x74 => Instr::I32Shl,
-                    0x75 => Instr::I32ShrS,
-                    0x76 => Instr::I32ShrU,
-                    0x77 => Instr::I32Rotl,
-                    0x78 => Instr::I32Rotr,
-                    0x79 => Instr::I64Clz,
-                    0x7a => Instr::I64Ctz,
-                    0x7b => Instr::I64Popcnt,
-                    0x7c => Instr::I64Add,
-                    0x7d => Instr::I64Sub,
-                    0x7e => Instr::I64Mul,
-                    0x7f => Instr::I64DivS,
-                    0x80 => Instr::I64DivU,
-                    0x81 => Instr::I64RemS,
-                    0x82 => Instr::I64RemU,
-                    0x83 => Instr::I64And,
-                    0x84 => Instr::I64Or,
-                    0x85 => Instr::I64Xor,
-                    0x86 => Instr::I64Shl,
-                    0x87 => Instr::I64ShrS,
-                    0x88 => Instr::I64ShrU,
-                    0x89 => Instr::I64Rotl,
-                    0x8a => Instr::I64Rotr,
-                    0x8b => Instr::F32Abs,
-                    0x8c => Instr::F32Neg,
-                    0x8d => Instr::F32Ceil,
-                    0x8e => Instr::F32Floor,
-                    0x8f => Instr::F32Trunc,
-                    0x90 => Instr::F32Nearest,
-                    0x91 => Instr::F32Sqrt,
-                    0x92 => Instr::F32Add,
-                    0x93 => Instr::F32Sub,
-                    0x94 => Instr::F32Mul,
-                    0x95 => Instr::F32Div,
-                    0x96 => Instr::F32Min,
-                    0x97 => Instr::F32Max,
-                    0x98 => Instr::F32Copysign,
-                    0x99 => Instr::F64Abs,
-                    0x9a => Instr::F64Neg,
-                    0x9b => Instr::F64Ceil,
-                    0x9c => Instr::F64Floor,
-                    0x9d => Instr::F64Trunc,
-                    0x9e => Instr::F64Nearest,
-                    0x9f => Instr::F64Sqrt,
-                    0xa0 => Instr::F64Add,
-                    0xa1 => Instr::F64Sub,
-                    0xa2 => Instr::F64Mul,
-                    0xa3 => Instr::F64Div,
-                    0xa4 => Instr::F64Min,
-                    0xa5 => Instr::F64Max,
-                    0xa6 => Instr::F64Copysign,
-                    0xc0 => Instr::I32Extend8S,
-                    0xc1 => Instr::I32Extend16S,
-                    _ => unimplemented!("unimplemented instr {:#x}", byte),
-                };
                 body.0.push(instr);
             }
-
+            println!("{:?}", body);
             let func = Func {
                 type_: type_idxs[i as usize],
                 locals,
@@ -371,6 +260,177 @@ impl Decoder<'_> {
         }
 
         Ok(funcs)
+    }
+
+    fn decode_instruction(&mut self) -> Result<Instr, DecodingError> {
+        let byte = self.input[self.pos];
+        self.pos += 1;
+
+        let instr = match byte {
+            0x04 => {
+                let block_type = match self.input[self.pos] {
+                    0x7f => BlockType::ValType(ValType::NumType(NumType::I32)),
+                    0x7e => BlockType::ValType(ValType::NumType(NumType::I64)),
+                    0x7d => BlockType::ValType(ValType::NumType(NumType::F32)),
+                    0x7c => BlockType::ValType(ValType::NumType(NumType::F64)),
+                    _ => unimplemented!("unimplemented block type"),
+                };
+                self.pos += 1;
+
+                let mut instructions1 = Vec::new();
+                let mut instructions2 = Vec::new();
+                'outer: loop {
+                    let instr = self.decode_instruction()?;
+
+                    if instr == Instr::Else {
+                        loop {
+                            let instr = self.decode_instruction()?;
+
+                            if instr == Instr::End {
+                                break 'outer;
+                            } else {
+                                instructions2.push(instr);
+                            }
+                        }
+                    } else {
+                        instructions1.push(instr);
+                    }
+                }
+
+                If(block_type, instructions1, instructions2)
+            }
+            0x05 => Instr::Else,
+            0x0b => Instr::End,
+            0x10 => {
+                let idx = self.decode_u32()?;
+                self.pos += 1;
+                Instr::Call(idx)
+            }
+            0x1A => Instr::Drop,
+            0x20 => {
+                let idx = self.input[self.pos];
+                self.pos += 1;
+                Instr::LocalGet(idx as LocalIdx)
+            }
+            0x41 => {
+                let x = self.decode_u32()? as i32; // FIXME: decode_i32
+                self.pos += 1;
+                Instr::I32Const(x)
+            }
+            0x42 => {
+                let x = self.decode_i64()?;
+                self.pos += 1;
+                Instr::I64Const(x)
+            }
+            0x45 => Instr::I32Eqz,
+            0x46 => Instr::I32Eq,
+            0x47 => Instr::I32Ne,
+            0x48 => Instr::I32LtS,
+            0x49 => Instr::I32LtU,
+            0x4a => Instr::I32GtS,
+            0x4b => Instr::I32GtU,
+            0x4c => Instr::I32LeS,
+            0x4d => Instr::I32LeU,
+            0x4e => Instr::I32GeS,
+            0x4f => Instr::I32GeU,
+            0x50 => Instr::I64Eqz,
+            0x51 => Instr::I64Eq,
+            0x52 => Instr::I64Ne,
+            0x53 => Instr::I64LtS,
+            0x54 => Instr::I64LtU,
+            0x55 => Instr::I64GtS,
+            0x56 => Instr::I64GtU,
+            0x57 => Instr::I64LeS,
+            0x58 => Instr::I64LeU,
+            0x59 => Instr::I64GeS,
+            0x5a => Instr::I64GeU,
+            0x5b => Instr::F32Eq,
+            0x5c => Instr::F32Ne,
+            0x5d => Instr::F32Lt,
+            0x5e => Instr::F32Gt,
+            0x5f => Instr::F32Le,
+            0x60 => Instr::F32Ge,
+            0x61 => Instr::F64Eq,
+            0x62 => Instr::F64Ne,
+            0x63 => Instr::F64Lt,
+            0x64 => Instr::F64Gt,
+            0x65 => Instr::F64Le,
+            0x66 => Instr::F64Ge,
+            0x67 => Instr::I32Clz,
+            0x68 => Instr::I32Ctz,
+            0x69 => Instr::I32Popcnt,
+            0x6a => Instr::I32Add,
+            0x6b => Instr::I32Sub,
+            0x6c => Instr::I32Mul,
+            0x6d => Instr::I32DivS,
+            0x6e => Instr::I32DivU,
+            0x6f => Instr::I32RemS,
+            0x70 => Instr::I32RemU,
+            0x71 => Instr::I32And,
+            0x72 => Instr::I32Or,
+            0x73 => Instr::I32Xor,
+            0x74 => Instr::I32Shl,
+            0x75 => Instr::I32ShrS,
+            0x76 => Instr::I32ShrU,
+            0x77 => Instr::I32Rotl,
+            0x78 => Instr::I32Rotr,
+            0x79 => Instr::I64Clz,
+            0x7a => Instr::I64Ctz,
+            0x7b => Instr::I64Popcnt,
+            0x7c => Instr::I64Add,
+            0x7d => Instr::I64Sub,
+            0x7e => Instr::I64Mul,
+            0x7f => Instr::I64DivS,
+            0x80 => Instr::I64DivU,
+            0x81 => Instr::I64RemS,
+            0x82 => Instr::I64RemU,
+            0x83 => Instr::I64And,
+            0x84 => Instr::I64Or,
+            0x85 => Instr::I64Xor,
+            0x86 => Instr::I64Shl,
+            0x87 => Instr::I64ShrS,
+            0x88 => Instr::I64ShrU,
+            0x89 => Instr::I64Rotl,
+            0x8a => Instr::I64Rotr,
+            0x8b => Instr::F32Abs,
+            0x8c => Instr::F32Neg,
+            0x8d => Instr::F32Ceil,
+            0x8e => Instr::F32Floor,
+            0x8f => Instr::F32Trunc,
+            0x90 => Instr::F32Nearest,
+            0x91 => Instr::F32Sqrt,
+            0x92 => Instr::F32Add,
+            0x93 => Instr::F32Sub,
+            0x94 => Instr::F32Mul,
+            0x95 => Instr::F32Div,
+            0x96 => Instr::F32Min,
+            0x97 => Instr::F32Max,
+            0x98 => Instr::F32Copysign,
+            0x99 => Instr::F64Abs,
+            0x9a => Instr::F64Neg,
+            0x9b => Instr::F64Ceil,
+            0x9c => Instr::F64Floor,
+            0x9d => Instr::F64Trunc,
+            0x9e => Instr::F64Nearest,
+            0x9f => Instr::F64Sqrt,
+            0xa0 => Instr::F64Add,
+            0xa1 => Instr::F64Sub,
+            0xa2 => Instr::F64Mul,
+            0xa3 => Instr::F64Div,
+            0xa4 => Instr::F64Min,
+            0xa5 => Instr::F64Max,
+            0xa6 => Instr::F64Copysign,
+            0xc0 => Instr::I32Extend8S,
+            0xc1 => Instr::I32Extend16S,
+            _ => unimplemented!("unimplemented instr {:#x}", byte),
+        };
+        Ok(instr)
+    }
+
+    fn decode_i64(&mut self) -> Result<i64, DecodingError> {
+        // FIXME
+        let byte = self.input[self.pos];
+        Ok(byte as i64)
     }
 
     fn decode_u32(&mut self) -> Result<u32, DecodingError> {
