@@ -458,14 +458,13 @@ impl Decoder<'_> {
             let byte = self.input[self.pos];
             self.pos += 1;
 
-            let value = (byte & 0x7f) as u32;
-            result += value << shift;
+            let value = (byte & 0b01111111) as u32;
+            result |= value << shift;
+            shift += 7;
 
-            if (byte & 0x80) == 0 {
+            if (byte & 0b10000000) == 0 {
                 break;
             }
-
-            shift += 7;
         }
 
         Ok(result)
