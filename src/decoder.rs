@@ -428,9 +428,26 @@ impl Decoder<'_> {
     }
 
     fn decode_i64(&mut self) -> Result<i64, DecodingError> {
-        // FIXME
-        let byte = self.input[self.pos];
-        Ok(byte as i64)
+        let mut result: i64 = 0;
+        let mut shift = 0;
+
+        loop {
+            let byte = self.input[self.pos];
+            self.pos += 1;
+
+            let value = (byte & 0b01111111) as i64;
+            result |= value << shift;
+            shift += 7;
+
+            if (byte & 0b10000000) == 0 {
+                if shift < 64 && byte & 0x40 != 0 {
+                    result |= !0 << shift;
+                }
+                break;
+            }
+        }
+
+        Ok(result)
     }
 
     fn decode_u32(&mut self) -> Result<u32, DecodingError> {
