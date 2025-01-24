@@ -303,23 +303,19 @@ impl Decoder<'_> {
             0x0b => Instr::End,
             0x10 => {
                 let idx = self.decode_u32()?;
-                self.pos += 1;
                 Instr::Call(idx)
             }
             0x1A => Instr::Drop,
             0x20 => {
-                let idx = self.input[self.pos];
-                self.pos += 1;
+                let idx = self.decode_u32()?;
                 Instr::LocalGet(idx as LocalIdx)
             }
             0x41 => {
                 let x = self.decode_u32()? as i32; // FIXME: decode_i32
-                self.pos += 1;
                 Instr::I32Const(x)
             }
             0x42 => {
                 let x = self.decode_i64()?;
-                self.pos += 1;
                 Instr::I64Const(x)
             }
             0x45 => Instr::I32Eqz,
