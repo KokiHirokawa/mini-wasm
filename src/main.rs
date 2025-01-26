@@ -37,5 +37,5 @@ fn main() {
     let module_inst = instantiate(&mut store, module);
 
     let arguments = cli.arguments.iter().map(|x| Val::I64(*x as i64)).collect();
-    invoke(&store, &module_inst, cli.exported_function, arguments);
+    invoke(store, &module_inst, cli.exported_function, arguments);
 }
